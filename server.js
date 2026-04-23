@@ -1,22 +1,41 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.SPORTSDATA_API_KEY || '2b0184b2a529419a945e38003ded55f6';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'FitzPicks';
+const STATE_FILE = path.join(__dirname, 'picks-state.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Load state from disk on startup
+function loadStateFromDisk() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = fs.readFileSync(STATE_FILE, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch(e) {
+    console.error('Could not load state from disk:', e.message);
+  }
+  return { date: null, draft: null, published: null };
+}
+
+function saveStateToDisk() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch(e) {
+    console.error('Could not save state to disk:', e.message);
+  }
+}
+
 // State: draft = AI generated, published = approved by you
-const state = {
-  date: null,
-  draft: null,      // AI-generated, not yet approved
-  published: null   // What the public sees
-};
+const state = loadStateFromDisk();
 
 function fmtDate(dateStr) {
   const d = new Date(dateStr);
@@ -188,6 +207,7 @@ app.post('/api/admin/generate', requireAuth, async (req, res) => {
     const picks = await generatePicks(games);
     state.date = date;
     state.draft = picks;
+    saveStateToDisk();
     res.json({ success: true, draft: picks });
   } catch(e) {
     console.error('Generate error:', e.message);
@@ -209,12 +229,14 @@ app.post('/api/admin/publish', requireAuth, (req, res) => {
   if (!Array.isArray(picks)) return res.status(400).json({ error: 'picks must be an array' });
   state.published = picks;
   if (!state.date) state.date = new Date().toISOString().split('T')[0];
+  saveStateToDisk();
   res.json({ success: true });
 });
 
 // Unpublish (take picks offline)
 app.post('/api/admin/unpublish', requireAuth, (req, res) => {
   state.published = null;
+  saveStateToDisk();
   res.json({ success: true });
 });
 
