@@ -609,11 +609,10 @@
 </div>
 
 <script>
-const DK_AFFILIATE_URL = 'https://sportsbook.draftkings.com'; // Replace with your actual affiliate link
+const DK_AFFILIATE_URL = 'https://sportsbook.draftkings.com'; // Replace with your actual DK affiliate link
 
 let oddsData = [];
-let propsData = [];
-let selectedGame = 0;
+let picksData = [];
 
 function fmtDate(d) {
   return d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
@@ -628,131 +627,87 @@ function fmtML(v) {
   return (v > 0 ? '+' : '') + v;
 }
 
-function getBestML(books, field) {
-  const vals = books.map(b => b[field]).filter(v => v !== null && v !== undefined);
-  return vals.length ? Math.max(...vals) : null;
+function confidenceColor(c) {
+  if (c === 'Lock') return 'var(--green)';
+  if (c === 'Strong') return 'var(--amber)';
+  return 'var(--gray)';
 }
 
-function getConsensus(books, field) {
-  const vals = books.map(b => b[field]).filter(v => v !== null && v !== undefined);
-  if (!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
+function confidenceEmoji(c) {
+  if (c === 'Lock') return '🔒';
+  if (c === 'Strong') return '🔥';
+  return '💡';
 }
 
 async function loadData() {
   const today = new Date();
-  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const dateStr = `${today.getFullYear()}-${months[today.getMonth()]}-${String(today.getDate()).padStart(2,'0')}`;
+  document.getElementById('hero-date').textContent = fmtDate(today);
+  document.getElementById('dk-main-cta').href = DK_AFFILIATE_URL;
+
   const isoDate = today.toISOString().split('T')[0];
 
-  document.getElementById('hero-date').textContent = fmtDate(today);
-
+  // Load odds and picks in parallel
   try {
-    const [r1, r2] = await Promise.all([
+    document.getElementById('main-content').innerHTML = `
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <div>FitzPicks is analyzing today's lines...</div>
+      </div>`;
+
+    const [oddsRes, picksRes] = await Promise.all([
       fetch(`/api/odds?date=${isoDate}`),
-      fetch(`/api/props?date=${isoDate}`)
+      fetch(`/api/picks`)
     ]);
-    oddsData = await r1.json();
-    propsData = await r2.json();
+
+    oddsData = await oddsRes.json();
+    picksData = await picksRes.json();
+
     if (!Array.isArray(oddsData) || !oddsData.length) {
-      document.getElementById('main-content').innerHTML = `<div class="loading-state" style="color:var(--gray)">No games scheduled today. Check back tomorrow.</div>`;
+      document.getElementById('main-content').innerHTML = `
+        <div class="loading-state" style="color:var(--gray)">
+          No NBA games scheduled today. Check back tomorrow.
+        </div>`;
       return;
     }
+
     render();
   } catch(e) {
-    document.getElementById('main-content').innerHTML = `<div class="loading-state" style="color:var(--gray)">Couldn't load odds right now. Try refreshing.</div>`;
+    document.getElementById('main-content').innerHTML = `
+      <div class="loading-state" style="color:var(--gray)">
+        Couldn't load picks right now. Try refreshing.
+      </div>`;
   }
 }
 
-function selectGame(i) {
-  selectedGame = i;
-  render();
-}
-
 function render() {
-  const g = oddsData[selectedGame];
-  const books = g.PregameOdds || [];
-  const gameProps = propsData.filter(p => p.GameID === g.GameId).slice(0, 5);
-
-  const bestHomeML = getBestML(books, 'HomeMoneyLine');
-  const bestAwayML = getBestML(books, 'AwayMoneyLine');
-  const avgSpread = getConsensus(books, 'HomePointSpread');
-  const avgOU = getConsensus(books, 'OverUnder');
-  const timeStr = fmtTime(g.DateTime);
-  const scoreStr = g.HomeTeamScore !== null && g.AwayTeamScore !== null
-    ? `${g.AwayTeamScore}–${g.HomeTeamScore}` : timeStr;
-
   // Game chips
   const chips = oddsData.map((gm, i) => `
-    <div class="game-chip${i === selectedGame ? ' active' : ''}" onclick="selectGame(${i})">
+    <div class="game-chip">
       <div class="game-chip-matchup">${gm.AwayTeamName} @ ${gm.HomeTeamName}</div>
       <div class="game-chip-time">${gm.Status === 'Final' ? 'Final' : fmtTime(gm.DateTime)}</div>
     </div>`).join('');
 
-  // Pick cards
-  const picks = [];
-
-  if (bestHomeML !== null) {
-    const bestBook = books.find(b => b.HomeMoneyLine === bestHomeML);
-    picks.push({
-      type: 'MONEYLINE',
-      value: fmtML(bestHomeML),
-      label: `${g.HomeTeamName} to win`,
-      meta: `Best moneyline across ${books.length} books. Consensus: ${fmtML(Math.round(getConsensus(books,'HomeMoneyLine')))}`,
-      bookId: bestBook?.SportsbookId
-    });
-  }
-
-  if (avgOU !== null) {
-    const overPay = getConsensus(books, 'OverPayout');
-    picks.push({
-      type: 'OVER/UNDER',
-      value: avgOU.toFixed(1),
-      label: `Total points line`,
-      meta: `Over pays ${fmtML(Math.round(overPay))} on average. Under pays ${fmtML(Math.round(getConsensus(books,'UnderPayout')))}`,
-      bookId: null
-    });
-  }
-
-  if (avgSpread !== null) {
-    picks.push({
-      type: 'SPREAD',
-      value: (avgSpread > 0 ? '+' : '') + avgSpread.toFixed(1),
-      label: `${g.HomeTeamName} point spread`,
-      meta: `Consensus spread across ${books.length} sportsbooks. Shop around — lines vary up to ${books.length > 1 ? (Math.max(...books.map(b=>b.HomePointSpread||0)) - Math.min(...books.map(b=>b.HomePointSpread||0))).toFixed(1) : '0'} pts.`,
-      bookId: null
-    });
-  }
-
-  const pickCards = picks.map(p => `
+  // AI Pick cards
+  const pickCards = picksData.map(p => `
     <div class="pick-card fade-up">
       <div class="pick-card-header">
-        <div class="pick-matchup">${g.AwayTeamName} @ ${g.HomeTeamName}</div>
-        <div class="pick-type-badge">${p.type}</div>
+        <div class="pick-matchup">${p.matchup}</div>
+        <div class="pick-type-badge" style="color:${confidenceColor(p.confidence)};border-color:${confidenceColor(p.confidence)}40;background:${confidenceColor(p.confidence)}10">
+          ${confidenceEmoji(p.confidence)} ${p.confidence}
+        </div>
       </div>
       <div class="pick-body">
         <div class="pick-line">
-          <div class="pick-value">${p.value}</div>
-          <div class="pick-label">${p.label}</div>
+          <div class="pick-value" style="font-size:28px;line-height:1.2">${p.pick}</div>
         </div>
-        <div class="pick-meta">${p.meta}</div>
-        ${p.bookId ? `<div class="pick-books"><span class="book-chip best">BOOK ${p.bookId} — BEST LINE</span></div>` : ''}
-        <a class="pick-cta" href="${DK_AFFILIATE_URL}" target="_blank" rel="noopener">BET THIS ON DRAFTKINGS →</a>
+        <div class="pick-meta" style="font-size:14px;line-height:1.7;color:var(--white);margin-bottom:16px">
+          ${p.analysis}
+        </div>
+        <a class="pick-cta" href="${DK_AFFILIATE_URL}" target="_blank" rel="noopener">
+          BET THIS ON DRAFTKINGS →
+        </a>
       </div>
     </div>`).join('');
-
-  // Props
-  const propCards = gameProps.length ? gameProps.map(p => `
-    <div class="prop-card fade-up">
-      <div class="prop-card-left">
-        <div class="prop-player">${p.Name}</div>
-        <div class="prop-desc">${p.Description} · ${p.Team}</div>
-      </div>
-      <div class="prop-right">
-        <div class="prop-line">${p.OverUnder}</div>
-        <div class="prop-payout">O ${fmtML(p.OverPayout)} / U ${fmtML(p.UnderPayout)}</div>
-      </div>
-    </div>`).join('') : '';
 
   document.getElementById('main-content').innerHTML = `
     <div class="section-head">
@@ -761,25 +716,20 @@ function render() {
     </div>
     <div class="game-scroll">${chips}</div>
 
-    <div class="section-head">
-      <div class="section-label">KEY LINES</div>
-      <div class="section-count">${scoreStr}</div>
+    <div class="section-head" style="margin-top:8px">
+      <div class="section-label">FITZPICKS ANALYSIS</div>
+      <div class="section-count">AI-POWERED · UPDATED DAILY</div>
     </div>
-    <div class="picks-list">${pickCards}</div>
+    <div class="picks-list">${pickCards || '<div class="loading-state" style="color:var(--gray)">Analysis loading...</div>'}</div>
 
-    ${propCards ? `
-    <div class="section-head">
-      <div class="section-label">TOP PROPS</div>
-      <div class="section-count">${g.AwayTeamName} @ ${g.HomeTeamName}</div>
-    </div>
-    <a class="dk-banner" href="${DK_AFFILIATE_URL}" target="_blank" rel="noopener" style="margin-bottom:16px">
+    <a class="dk-banner fade-up" href="${DK_AFFILIATE_URL}" target="_blank" rel="noopener" style="margin-bottom:8px">
       <div class="dk-left">
-        <div class="dk-label">PROPS AVAILABLE ON</div>
+        <div class="dk-label">PLACE YOUR BETS ON</div>
         <div class="dk-headline" style="font-size:18px">DRAFTKINGS SPORTSBOOK</div>
+        <div class="dk-sub">New users get up to $200 in bonus bets</div>
       </div>
       <div class="dk-btn">BET NOW →</div>
-    </a>
-    <div class="props-list">${propCards}</div>` : ''}`;
+    </a>`;
 }
 
 function submitEmail() {
@@ -788,14 +738,9 @@ function submitEmail() {
     document.getElementById('email-input').focus();
     return;
   }
-  // TODO: wire to your email provider (Mailchimp, ConvertKit, etc.)
-  // For now, just show success state
   document.getElementById('email-form').style.display = 'none';
   document.getElementById('email-success').style.display = 'block';
 }
-
-// Set affiliate URL on all CTA buttons
-document.getElementById('dk-main-cta').href = DK_AFFILIATE_URL;
 
 loadData();
 </script>
