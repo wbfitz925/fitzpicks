@@ -661,6 +661,7 @@ async function loadData() {
 
     oddsData = await oddsRes.json();
     picksData = await picksRes.json();
+    if (!Array.isArray(picksData)) picksData = [];
 
     if (!Array.isArray(oddsData) || !oddsData.length) {
       document.getElementById('main-content').innerHTML = `
@@ -720,7 +721,7 @@ function render() {
       <div class="section-label">FITZPICKS ANALYSIS</div>
       <div class="section-count">AI-POWERED · UPDATED DAILY</div>
     </div>
-    <div class="picks-list">${pickCards || '<div class="loading-state" style="color:var(--gray)">Analysis loading...</div>'}</div>
+    <div class="picks-list">${pickCards || '<div class="loading-state"><div style=\"font-family:Bebas Neue,sans-serif;font-size:26px;letter-spacing:0.04em;margin-bottom:8px\">PICKS DROPPING SOON</div><div style=\"color:var(--gray);font-size:14px\">FitzPicks is reviewing today\'s lines. Check back shortly.</div></div>'}</div>
 
     <a class="dk-banner fade-up" href="${DK_AFFILIATE_URL}" target="_blank" rel="noopener" style="margin-bottom:8px">
       <div class="dk-left">
