@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitzPicks Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #080a08; --black2: #0f120f; --black3: #161a16; --black4: #1d221d;
+      --green: #00ff6a; --green-dim: rgba(0,255,106,0.08);
+      --white: #f0f2f0; --gray: #8a9188; --gray2: #4a524a;
+      --red: #ff3b3b; --amber: #ffb800; --amber-bg: rgba(255,184,0,0.1);
+    }
+    body { background: var(--black); color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 15px; min-height: 100vh; }
+
+    /* LOGIN */
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+    .login-box { background: var(--black2); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px; width: 100%; max-width: 380px; text-align: center; }
+    .login-logo { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .login-logo em { color: var(--green); font-style: normal; }
+    .login-sub { font-size: 13px; color: var(--gray); margin-bottom: 28px; }
+    .login-input { width: 100%; background: var(--black); border: 1px solid var(--gray2); border-radius: 12px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 15px; padding: 14px 16px; outline: none; margin-bottom: 12px; transition: border-color 0.2s; }
+    .login-input:focus { border-color: var(--green); }
+    .login-btn { width: 100%; background: var(--green); color: #000; font-family: 'Bebas Neue', sans-serif; font-size: 19px; letter-spacing: 0.06em; padding: 14px; border: none; border-radius: 12px; cursor: pointer; transition: background 0.15s; }
+    .login-btn:hover { background: #00e65f; }
+    .login-error { font-size: 13px; color: var(--red); margin-top: 10px; display: none; }
+
+    /* ADMIN */
+    .admin-wrap { max-width: 860px; margin: 0 auto; padding: 2rem; display: none; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .header-logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.04em; }
+    .header-logo em { color: var(--green); font-style: normal; }
+    .header-right { display: flex; gap: 10px; align-items: center; }
+    .status-badge { font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 100px; }
+    .status-live { background: rgba(0,255,106,0.1); color: var(--green); border: 1px solid rgba(0,255,106,0.3); }
+    .status-draft { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(255,184,0,0.3); }
+    .status-offline { background: rgba(255,255,255,0.05); color: var(--gray); border: 1px solid rgba(255,255,255,0.1); }
+
+    .btn { padding: 8px 18px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+    .btn:active { transform: scale(0.97); }
+    .btn-green { background: var(--green); color: #000; }
+    .btn-green:hover { background: #00e65f; }
+    .btn-outline { background: transparent; color: var(--white); border: 1px solid var(--gray2); }
+    .btn-outline:hover { border-color: var(--white); }
+    .btn-red { background: rgba(255,59,59,0.1); color: var(--red); border: 1px solid rgba(255,59,59,0.3); }
+    .btn-red:hover { background: rgba(255,59,59,0.2); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.05em; margin-bottom: 14px; color: var(--gray); }
+
+    .controls-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .date-input { background: var(--black3); border: 1px solid var(--gray2); border-radius: 8px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 8px 12px; outline: none; }
+    .date-input:focus { border-color: var(--green); }
+
+    .pick-editor { background: var(--black2); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 20px; margin-bottom: 14px; }
+    .pick-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pick-matchup-label { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; }
+    .confidence-select { background: var(--black4); border: 1px solid var(--gray2); border-radius: 8px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 6px 10px; outline: none; cursor: pointer; }
+    .field-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--gray); margin-bottom: 6px; }
+    .field-wrap { margin-bottom: 14px; }
+    .pick-input { width: 100%; background: var(--black); border: 1px solid var(--gray2); border-radius: 10px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 14px; outline: none; transition: border-color 0.2s; }
+    .pick-input:focus { border-color: var(--green); }
+    .pick-textarea { width: 100%; background: var(--black); border: 1px solid var(--gray2); border-radius: 10px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 14px; outline: none; resize: vertical; min-height: 100px; line-height: 1.6; transition: border-color 0.2s; }
+    .pick-textarea:focus { border-color: var(--green); }
+
+    .publish-bar { background: var(--black2); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 1.5rem; }
+    .publish-info { font-size: 13px; color: var(--gray); line-height: 1.6; }
+    .publish-info strong { color: var(--white); }
+    .publish-actions { display: flex; gap: 10px; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #000; font-weight: 600; font-size: 14px; padding: 12px 20px; border-radius: 12px; display: none; z-index: 999; }
+
+    .empty-state { text-align: center; padding: 48px; color: var(--gray); }
+    .empty-state h3 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--gray); margin-bottom: 8px; }
+
+    .spinner { width: 20px; height: 20px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Fitz<em>Picks</em></div>
+    <div class="login-sub">Admin Panel</div>
+    <input class="login-input" type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')login()" />
+    <button class="login-btn" onclick="login()">SIGN IN</button>
+    <div class="login-error" id="login-error">Wrong password. Try again.</div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-wrap" id="admin-panel">
+  <header>
+    <div class="header-logo">Fitz<em>Picks</em> <span style="font-size:14px;color:var(--gray);font-family:'DM Sans',sans-serif;font-weight:400">Admin</span></div>
+    <div class="header-right">
+      <span class="status-badge status-offline" id="live-status">OFFLINE</span>
+      <button class="btn btn-outline" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+
+  <div class="controls-bar">
+    <div class="section-title" style="margin-bottom:0">TODAY'S PICKS</div>
+    <input type="date" class="date-input" id="date-input" />
+    <button class="btn btn-outline" id="generate-btn" onclick="generateDraft()">Generate AI Draft</button>
+    <button class="btn btn-outline" onclick="loadState()">Refresh</button>
+  </div>
+
+  <div id="picks-area">
+    <div class="empty-state">
+      <h3>No picks yet</h3>
+      <p>Click "Generate AI Draft" to have FitzPicks AI create today's picks, then edit and publish them.</p>
+    </div>
+  </div>
+
+  <div class="publish-bar" id="publish-bar" style="display:none">
+    <div class="publish-info">
+      <strong>Ready to go live?</strong><br>
+      Publishing will make these picks visible to everyone on your site.
+    </div>
+    <div class="publish-actions">
+      <button class="btn btn-red" id="unpublish-btn" onclick="unpublish()" style="display:none">Take Offline</button>
+      <button class="btn btn-green" id="publish-btn" onclick="publish()">Publish Picks →</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let token = null;
+let currentPicks = [];
+let isPublished = false;
+
+function login() {
+  const pw = document.getElementById('pw-input').value;
+  fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw })
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      token = data.token;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
+      loadState();
+    } else {
+      document.getElementById('login-error').style.display = 'block';
+    }
+  });
+}
+
+function logout() {
+  token = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'x-admin-token': token };
+}
+
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || 'var(--green)';
+  t.style.color = color ? '#fff' : '#000';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+async function loadState() {
+  const res = await fetch('/api/admin/state', { headers: authHeaders() });
+  const data = await res.json();
+  isPublished = !!data.published;
+  const picks = data.draft || data.published || [];
+  currentPicks = JSON.parse(JSON.stringify(picks));
+  renderPicks(picks);
+  updateStatus(isPublished);
+}
+
+function updateStatus(live) {
+  const badge = document.getElementById('live-status');
+  const unpublishBtn = document.getElementById('unpublish-btn');
+  const publishBtn = document.getElementById('publish-btn');
+  if (live) {
+    badge.textContent = 'LIVE';
+    badge.className = 'status-badge status-live';
+    unpublishBtn.style.display = 'block';
+    publishBtn.textContent = 'Update Live Picks →';
+  } else {
+    badge.textContent = 'OFFLINE';
+    badge.className = 'status-badge status-offline';
+    unpublishBtn.style.display = 'none';
+    publishBtn.textContent = 'Publish Picks →';
+  }
+}
+
+function renderPicks(picks) {
+  const bar = document.getElementById('publish-bar');
+  if (!picks || !picks.length) {
+    document.getElementById('picks-area').innerHTML = `
+      <div class="empty-state">
+        <h3>No picks yet</h3>
+        <p>Click "Generate AI Draft" to have FitzPicks AI create today's picks, then edit and publish them.</p>
+      </div>`;
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  document.getElementById('picks-area').innerHTML = picks.map((p, i) => `
+    <div class="pick-editor">
+      <div class="pick-editor-header">
+        <div class="pick-matchup-label">${p.matchup}</div>
+        <select class="confidence-select" onchange="updatePick(${i},'confidence',this.value)">
+          <option value="Lock" ${p.confidence==='Lock'?'selected':''}>🔒 Lock</option>
+          <option value="Strong" ${p.confidence==='Strong'?'selected':''}>🔥 Strong</option>
+          <option value="Value Play" ${p.confidence==='Value Play'?'selected':''}>💡 Value Play</option>
+        </select>
+      </div>
+      <div class="field-wrap">
+        <div class="field-label">YOUR PICK</div>
+        <input class="pick-input" value="${escHtml(p.pick)}" oninput="updatePick(${i},'pick',this.value)" placeholder="e.g. Orlando +9.5" />
+      </div>
+      <div class="field-wrap">
+        <div class="field-label">BET TYPE</div>
+        <select class="confidence-select" style="width:100%" onchange="updatePick(${i},'betType',this.value)">
+          <option value="spread" ${p.betType==='spread'?'selected':''}>Spread</option>
+          <option value="moneyline" ${p.betType==='moneyline'?'selected':''}>Moneyline</option>
+          <option value="over" ${p.betType==='over'?'selected':''}>Over</option>
+          <option value="under" ${p.betType==='under'?'selected':''}>Under</option>
+        </select>
+      </div>
+      <div class="field-wrap" style="margin-bottom:0">
+        <div class="field-label">ANALYSIS</div>
+        <textarea class="pick-textarea" oninput="updatePick(${i},'analysis',this.value)">${escHtml(p.analysis)}</textarea>
+      </div>
+    </div>`).join('');
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updatePick(idx, field, value) {
+  currentPicks[idx][field] = value;
+}
+
+async function generateDraft() {
+  const btn = document.getElementById('generate-btn');
+  const date = document.getElementById('date-input').value;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating...';
+  try {
+    const res = await fetch('/api/admin/generate', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ date })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    currentPicks = JSON.parse(JSON.stringify(data.draft));
+    renderPicks(data.draft);
+    showToast('AI draft generated — review and publish when ready');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'var(--red)');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Generate AI Draft';
+}
+
+async function publish() {
+  const res = await fetch('/api/admin/publish', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ picks: currentPicks })
+  });
+  const data = await res.json();
+  if (data.success) {
+    isPublished = true;
+    updateStatus(true);
+    showToast('Picks are now live on FitzPicks!');
+  }
+}
+
+async function unpublish() {
+  const res = await fetch('/api/admin/unpublish', {
+    method: 'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (data.success) {
+    isPublished = false;
+    updateStatus(false);
+    showToast('Picks taken offline', 'var(--amber)');
+  }
+}
+</script>
+</body>
+</html>
